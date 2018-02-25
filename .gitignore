@@ -1,0 +1,6 @@
+.idea／*
+.DS_Store
+*.iml
+out/*
+test
+.ipynb_checkpoints/*
