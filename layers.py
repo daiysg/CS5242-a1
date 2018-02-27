@@ -252,7 +252,7 @@ class Convolution(Layer):
         #############################################################
         # code here
         in_batch, in_channel, in_height, in_width = inputs.shape
-        w_batch, w_channel, w_height, w_width = self.weights
+        w_batch, w_channel, w_height, w_width = self.weights.shape
 
         # padding
         t_pad = int(self.pad / 2)
