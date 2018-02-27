@@ -261,7 +261,8 @@ class Convolution(Layer):
         # init output
         out_height = 1 + int((in_height + self.pad - w_height) / self.stride)
         out_width = 1 + int((in_width + self.pad - w_width) / self.stride)
-        out_dx_pad = np.zeros(x_pad.shape)
+        out_grads = np.zeros(inputs.shape)
+        out_grad_pad = np.zeros(x_pad.shape)
 
         out_dw = np.zeros(self.weights.shape)
         self.b_grad = np.sum(in_grads, axis=(0, 2, 3))
@@ -272,11 +273,11 @@ class Convolution(Layer):
                 for k in range(w_batch):
                     out_dw[k, :, :, :] += np.sum(x_pad_masked * (in_grads[:, k, i, j])[:, None, None, None], axis=0)
                 for n in range(in_batch):
-                    out_dx_pad[n, :, i * self.stride:i * self.stride + w_height,
+                    out_grad_pad[n, :, i * self.stride:i * self.stride + w_height,
                     j * self.stride:j * self.stride + w_width] += np.sum(
                         (self.weights[:, :, :, :] * (in_grads[n, :, i, j])[:, None, None, None]), axis=0)
 
-        out_grads = out_dx_pad[:, :, t_pad:-t_pad, t_pad:-t_pad]
+        out_grads = out_grad_pad[:, :, t_pad:-t_pad, t_pad:-t_pad]
 
         self.w_grad = out_dw
         #############################################################
