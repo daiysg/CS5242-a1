@@ -213,26 +213,27 @@ class Convolution(Layer):
             new_input_matrix[i] = np.asarray(X).T
 
         ## calculate W
-        new_weight_matrix = np.array([])
+        W = np.array([])
         for i in range(self.weights.shape[0]):
             w_vec = self.weights[i].reshape(-1)
             if i == 0:
-                new_weight_matrix = w_vec
+                W = w_vec
             else:
-                new_weight_matrix = np.vstack((new_weight_matrix, w_vec))
+                W = np.vstack((W, w_vec))
 
         out = np.ndarray(shape=(inputs.shape[0], self.weights.shape[0], height, width))
 
         ## calculate B
         new_bias_matrix = self.bias
-        for i in range(input_with_padding.shape[2] - 1):
+        for i in range(new_input_matrix.shape[2] - 1):
             new_bias_matrix = np.vstack((new_bias_matrix, self.bias))
         new_bias_matrix = new_bias_matrix.T
 
         ## calculate output
         for i in range(new_input_matrix.shape[0]):
-            outputs[i] = (new_weight_matrix.dot(new_input_matrix[i]) + new_bias_matrix).reshape(
-                new_weight_matrix.shape[0], height, width)
+            output_w = W.dot(new_input_matrix[i])
+            outputs[i] = (output_w + new_bias_matrix).reshape(
+                W.shape[0], height, width)
 
         #############################################################
         return outputs
@@ -473,11 +474,11 @@ class Dropout(Layer):
         #############################################################
         # code here
         p = self.ratio
+        np.random.seed(self.seed)
 
-        if (self.training):
+        if self.training:
             ## training data set
-            self.seed = np.random.rand(inputs.shape)
-            self.mask = (self.seed < p) / p
+            self.mask = (np.random.randn(*inputs.shape) < p) / p
             outputs = inputs * self.mask
         else:
             ## test dataset
