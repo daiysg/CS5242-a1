@@ -214,14 +214,14 @@ class Convolution(Layer):
 
         ## calculate W
         W = np.array([])
-        for i in range(self.weights.shape[0]):
+        for i in range(self.out_channel):
             w_vec = self.weights[i].reshape(-1)
             if i == 0:
                 W = w_vec
             else:
                 W = np.vstack((W, w_vec))
 
-        out = np.ndarray(shape=(inputs.shape[0], self.weights.shape[0], height, width))
+        outputs = np.ndarray(shape=(inputs.shape[0], self.out_channel, height, width))
 
         ## calculate B
         new_bias_matrix = self.bias
@@ -232,8 +232,8 @@ class Convolution(Layer):
         ## calculate output
         for i in range(new_input_matrix.shape[0]):
             output_w = W.dot(new_input_matrix[i])
-            outputs[i] = (output_w + new_bias_matrix).reshape(
-                W.shape[0], height, width)
+            middle = (output_w + new_bias_matrix)
+            outputs[i] = middle.reshape(self.out_channel, height, width)
 
         #############################################################
         return outputs
