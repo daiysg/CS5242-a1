@@ -58,17 +58,18 @@ class SoftmaxCrossEntropy(Loss):
 
         # Arguments
             inputs: numpy array with shape (batch, num_class), same with forward inputs
-            targets: numpy array with shape (batch,), same eith forward targets
+            targets: numpy array with shape (batch,), same with forward targets
 
         # Returns
             out_grads: numpy array with shape (batch, num_class), gradients to inputs 
         """
-        out_grads = None
         #############################################################
         # code here
-        N = inputs.shape[0]
-        out_grads[np.arange(N), targets] -= 1
-        out_grads /= N
+        N = targets.shape[0]
+        exps = np.exp(inputs)
+        out_grads = exps / np.sum(exps)
+        out_grads[range(N), targets] -= 1
+        out_grads = out_grads / N
         #############################################################
         return out_grads
 

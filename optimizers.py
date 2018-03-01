@@ -135,7 +135,7 @@ class Adam(Optimizer):
         # remove pass and code in for loop
         #############################################################
             self.moments[k] = self.beta_1 * self.moments[k] + (1 - self.beta_1) + xs_grads[k]
-            self.accumulators[k] = self.beta2 * self.accumulators[k] + (1 - self.beta2) * (xs_grads[k] ** 2)
+            self.accumulators[k] = self.beta_2 * self.accumulators[k] + (1 - self.beta_2) * (xs_grads[k] ** 2)
             moments_b = self.moments[k] / (1 - self.beta_1 ** iteration)
             accumulators_b = self.accumulators[k] / (1 - self.beta_2 ** iteration)
             new_xs[k] = xs[k] - self.lr * moments_b / (np.sqrt(accumulators_b) + self.epsilon)
