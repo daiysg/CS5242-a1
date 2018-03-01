@@ -401,10 +401,6 @@ class Pooling(Layer):
                             outputs[i, j, k, l] = np.max(
                                 inputs[i, j, k * self.stride:k * self.stride + self.pool_height,
                                 l * self.stride:l * self.stride + self.pool_width])
-                        elif self.pool_type == 'avg':
-                            outputs[i, j, k, l] = np.average(
-                                inputs[i, j, k * self.stride:k * self.stride + self.pool_height,
-                                l * self.stride:l * self.stride + self.pool_width])
                             #############################################################
 
         return outputs
