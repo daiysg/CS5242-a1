@@ -66,7 +66,7 @@ class SoftmaxCrossEntropy(Loss):
         #############################################################
         # code here
         N = targets.shape[0]
-        exps = np.exp(inputs)
+        exps = np.exp(inputs - np.max(inputs))
         out_grads = exps / np.sum(exps)
         out_grads[range(N), targets] -= 1
         out_grads = out_grads / N
