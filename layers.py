@@ -75,9 +75,8 @@ class FCLayer(Layer):
         #############################################################
         # code here
         N = inputs.shape[0]
-        D = np.prod(inputs.shape[1:])
-        x_rs = np.reshape(inputs, (N, -1))
-        outputs = x_rs.dot(self.weights) + self.bias
+        input_reshape = np.reshape(inputs, (N, -1))
+        outputs = input_reshape.dot(self.weights) + self.bias
         #############################################################
         return outputs
 
@@ -96,9 +95,9 @@ class FCLayer(Layer):
         # code here
 
         N = inputs.shape[0]
-        x_rs = np.reshape(inputs, (N, -1))
+        input_reshape = np.reshape(inputs, (N, -1))
+        self.w_grad = input_reshape .T.dot(in_grads)
         self.b_grad = in_grads.sum(axis=0)
-        self.w_grad = x_rs.T.dot(in_grads)
         dx = in_grads.dot(self.weights.T)
         out_grads = dx.reshape(inputs.shape)
         #############################################################
@@ -256,7 +255,7 @@ class Convolution(Layer):
         w_batch, w_channel, w_height, w_width = self.weights.shape
 
         # padding
-        x_pad = np.pad(inputs, ((0,), (0,), (self.pad,), (self.pad,)), mode='constant', constant_values=0)
+        matrix_padding = np.pad(inputs, ((0,), (0,), (self.pad,), (self.pad,)), mode='constant', constant_values=0)
 
         # init output
         out_width = 1 + int((in_width + self.pad * 2 - w_width) / self.stride)
@@ -271,10 +270,10 @@ class Convolution(Layer):
                 h_range_end = i * self.stride + w_height
                 w_range_start = j * self.stride
                 w_range_end = j * self.stride + w_width
-                x_pad_masked = x_pad[:, :, h_range_start:h_range_end,
+                matrix_padding_mask = matrix_padding[:, :, h_range_start:h_range_end,
                                w_range_start:w_range_end]
                 for k in range(w_batch):
-                    self.w_grad[k, :, :, :] += np.sum(x_pad_masked * (in_grads[:, k, i, j])[:, None, None, None], axis=0)
+                    self.w_grad[k, :, :, :] += np.sum(matrix_padding_mask * (in_grads[:, k, i, j])[:, None, None, None], axis=0)
                 for n in range(in_batch):
                     out_grads[n, :, h_range_start:h_range_end,
                     w_range_start:w_range_end] += np.sum(
@@ -336,7 +335,7 @@ class ReLU(Layer):
         # Arguments
             inputs: numpy array
 
-        # Returns
+        # Return
             outputs: numpy array
         """
         outputs = np.maximum(0, inputs)
@@ -392,18 +391,26 @@ class Pooling(Layer):
 
         batch, in_channel, in_height, in_width = inputs.shape
 
-        h_num = int((in_height - self.pool_height) / self.stride) + 1
-        w_num = int((in_width - self.pool_width) / self.stride) + 1
+        out_height = int((in_height - self.pool_height) / self.stride) + 1
+        out_width = int((in_width - self.pool_width) / self.stride) + 1
 
-        outputs = np.zeros((batch, in_channel, h_num, w_num))
+        outputs = np.zeros((batch, in_channel, out_height, out_width))
         for i in range(batch):
             for j in range(in_channel):
-                for k in range(h_num):
-                    for l in range(w_num):
+                for k in range(out_height):
+                    for l in range(out_width):
+                        height_start = k * self.stride
+                        height_end = k * self.stride + self.pool_height
+                        width_start = l * self.stride
+                        width_end = l * self.stride + self.pool_width
+
                         if self.pool_type == 'max':
                             outputs[i, j, k, l] = np.max(
-                                inputs[i, j, k * self.stride:k * self.stride + self.pool_height,
-                                l * self.stride:l * self.stride + self.pool_width])
+                                inputs[i, j, height_start:height_end, width_start:width_end])
+
+                        elif self.pool_type == 'avg':
+                            outputs[i, j, k, l] = np.average(
+                                inputs[i, j, height_start:height_end, width_start:width_end])
                             #############################################################
 
         return outputs
@@ -423,24 +430,23 @@ class Pooling(Layer):
         # code here
 
         batch, in_channel, in_height, in_width = inputs.shape
-        h_num = int((in_height - self.pool_height) / self.stride) + 1
-        w_num = int((in_width - self.pool_width) / self.stride) + 1
+        out_height = int((in_height - self.pool_height) / self.stride) + 1
+        out_width = int((in_width - self.pool_width) / self.stride) + 1
 
         out_grads = np.zeros(inputs.shape)
         for i in range(batch):
             for j in range(in_channel):
-                for k in range(h_num):
-                    for l in range(w_num):
-                        output_pool = inputs[i, j, k * self.stride:k * self.stride + self.pool_height,
-                                      l * self.stride:l * self.stride + self.pool_width]
+                for k in range(out_height):
+                    for l in range(out_width):
+                        height_start = k * self.stride
+                        height_end = k * self.stride + self.pool_height
+                        width_start = l * self.stride
+                        width_end = l * self.stride + self.pool_width
+                        output_pool = inputs[i, j, height_start:height_end, width_start:width_end]
                         output_mask = None
                         if self.pool_type == 'max':
                             output_mask = output_pool == np.max(output_pool)
-                        elif self.pool_type == 'avg':
-                            output_mask = output_pool == np.average(output_pool)
-                        out_grads[i, j, k * self.stride:k * self.stride + self.pool_height,
-                        l * self.stride:l * self.stride + self.pool_width] += in_grads[i, j, k, l] * output_mask
-
+                        out_grads[i, j, height_start:height_end, width_start:width_end] += in_grads[i, j, k, l] * output_mask
         #############################################################
         return out_grads
 
@@ -478,10 +484,7 @@ class Dropout(Layer):
             self.mask = (np.random.randn(*inputs.shape) < p) / p
             outputs = inputs * self.mask
         else:
-            ## test dataset
             outputs = inputs
-
-        outputs = outputs.astype(inputs.dtype, copy=False)
         #############################################################
         return outputs
 
