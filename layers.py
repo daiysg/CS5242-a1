@@ -189,24 +189,26 @@ class Convolution(Layer):
         # code here
 
         batch, in_channel, in_height, in_width = inputs.shape
-        ## add padding
-        input_with_padding = np.zeros((batch, in_channel, in_height + self.pad, in_width + self.pad))
+
+        input_with_padding = np.zeros((batch, in_channel, in_height + self.pad * 2, in_width + self.pad * 2))
+
+        ## add zero padding
         for i in range(batch):
-            for j in range(inputs[i].shape[0]):
-                input_with_padding[i, j] = np.pad(inputs[i, j], int(self.pad / 2), 'constant')
+            for j in range(in_channel):
+                input_with_padding[i, j] = np.pad(inputs[i, j], int(self.pad), 'constant')
 
-        height = 1 + int((input_with_padding[0, 0].shape[0] - self.kernel_h) / self.stride)
-        width = 1 + int((input_with_padding[0, 0].shape[1] - self.kernel_w) / self.stride)
+        height = int((in_height + self.pad * 2 - self.kernel_h) / self.stride) + 1
+        width = int((in_width + self.pad * 2 - self.kernel_w) / self.stride) + 1
 
-        ## calcualte new X
+        ## calcualte new X using img2col
         new_input_matrix = np.ndarray(shape=(
-        input_with_padding.shape[0], self.kernel_h * self.kernel_w * input_with_padding.shape[1], height * width))
+            batch, self.kernel_h * self.kernel_w * in_channel, height * width))
 
-        for i in range(input_with_padding.shape[0]):
+        for i in range(batch):
             X = []
             for k in range(height):
                 for l in range(width):
-                    vec = input_with_padding[i, 0:input_with_padding.shape[1],
+                    vec = input_with_padding[i, 0:in_channel,
                           k * self.stride:k * self.stride + self.kernel_h,
                           l * self.stride:l * self.stride + self.kernel_w].reshape(-1)
                     X.append(vec)
@@ -221,7 +223,7 @@ class Convolution(Layer):
             else:
                 W = np.vstack((W, w_vec))
 
-        outputs = np.ndarray(shape=(inputs.shape[0], self.out_channel, height, width))
+        outputs = np.ndarray(shape=(batch, self.out_channel, height, width))
 
         ## calculate B
         new_bias_matrix = self.bias
@@ -229,8 +231,8 @@ class Convolution(Layer):
             new_bias_matrix = np.vstack((new_bias_matrix, self.bias))
         new_bias_matrix = new_bias_matrix.T
 
-        ## calculate output
-        for i in range(new_input_matrix.shape[0]):
+        ## calculate output W*X+B
+        for i in range(batch):
             output_w = W.dot(new_input_matrix[i])
             middle = (output_w + new_bias_matrix)
             outputs[i] = middle.reshape(self.out_channel, height, width)
@@ -248,35 +250,36 @@ class Convolution(Layer):
         # Returns
             out_grads: numpy array with shape (batch, in_channel, in_height, in_width), gradients to inputs
         """
-        out_grads = None
         #############################################################
         # code here
         in_batch, in_channel, in_height, in_width = inputs.shape
         w_batch, w_channel, w_height, w_width = self.weights.shape
 
         # padding
-        t_pad = int(self.pad / 2)
-        x_pad = np.pad(inputs, ((0,), (0,), (t_pad,), (t_pad,)), mode='constant', constant_values=0)
+        x_pad = np.pad(inputs, ((0,), (0,), (self.pad,), (self.pad,)), mode='constant', constant_values=0)
 
         # init output
-        out_height = 1 + int((in_height + self.pad - w_height) / self.stride)
-        out_width = 1 + int((in_width + self.pad - w_width) / self.stride)
+        out_width = 1 + int((in_width + self.pad * 2 - w_width) / self.stride)
+        out_height = 1 + int((in_height + self.pad * 2 - w_height) / self.stride)
         out_grads = np.zeros(inputs.shape)
 
-        out_dw = np.zeros(self.weights.shape)
+        self.w_grad = np.zeros(self.weights.shape)
         self.b_grad = np.sum(in_grads, axis=(0, 2, 3))
         for i in range(out_height):
             for j in range(out_width):
-                x_pad_masked = x_pad[:, :, i * self.stride:i * self.stride + w_height,
-                               j * self.stride:j * self.stride + w_width]
+                h_range_start = i * self.stride
+                h_range_end = i * self.stride + w_height
+                w_range_start = j * self.stride
+                w_range_end = j * self.stride + w_width
+                x_pad_masked = x_pad[:, :, h_range_start:h_range_end,
+                               w_range_start:w_range_end]
                 for k in range(w_batch):
-                    out_dw[k, :, :, :] += np.sum(x_pad_masked * (in_grads[:, k, i, j])[:, None, None, None], axis=0)
+                    self.w_grad[k, :, :, :] += np.sum(x_pad_masked * (in_grads[:, k, i, j])[:, None, None, None], axis=0)
                 for n in range(in_batch):
-                    out_grads[n, :, i * self.stride:i * self.stride + w_height,
-                    j * self.stride:j * self.stride + w_width] += np.sum(
-                        (self.weights[:, :, :, :] * (in_grads[n, :, i, j])[:, None, None, None]), axis=0)
+                    out_grads[n, :, h_range_start:h_range_end,
+                    w_range_start:w_range_end] += np.sum(
+                        self.weights * (in_grads[n, :, i, j])[:, None, None, None], axis=0)
 
-        self.w_grad = out_dw
         #############################################################
         return out_grads
 
